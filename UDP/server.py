@@ -1,7 +1,7 @@
 ﻿import asyncio
 import socket
 from enum import IntEnum
-from model import ASLClassifier
+from UDP.model import ASLClassifier
 
 
 class KeyData(IntEnum):
@@ -49,8 +49,8 @@ class AsyncUDPServer:
         self.port = port
         self.buffer_size = buffer_size
         self.asl_classifier = ASLClassifier(
-            model_path='asl_model_v1.h5',
-            labels_path='class_labels_v1.npy'
+            model_path='../model/asl_model_v1.h5',
+            labels_path='../model/class_labels_v1.npy'
         )
 
     async def start_server(self):

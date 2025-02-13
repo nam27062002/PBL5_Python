@@ -2,7 +2,7 @@
 import json
 
 url = "http://localhost:8000/predict"
-file_path = "./dataset/a.jpg"
+file_path = "../dataset/a.jpg"
 
 try:
     with open(file_path, "rb") as f:

@@ -1,9 +1,4 @@
-﻿# --- Bước 1: Cài đặt thư viện ---
-# Chạy các lệnh này trong terminal trước:
-# pip install tensorflow[and-cuda] Pillow numpy matplotlib
-
-# --- Bước 2: Import thư viện ---
-import tensorflow as tf
+﻿import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
@@ -14,16 +9,15 @@ import numpy as np
 import cv2
 import os
 
-# --- Bước 3: Kiểm tra GPU ---
+
 print("=" * 50)
 print("Danh sách GPU có sẵn:", tf.config.list_physical_devices('GPU'))
 print("=" * 50)
 
-# --- Bước 4: Cấu hình GPU ---
+
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
     try:
-        # Giới hạn bộ nhớ GPU ở mức 4GB
         tf.config.experimental.set_virtual_device_configuration(
             gpus[0],
             [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=4096)]
@@ -32,12 +26,11 @@ if gpus:
     except RuntimeError as e:
         print(e)
 
-# --- Bước 5: Tiền xử lý dữ liệu ---
-# Đường dẫn dataset
-train_dir = './dataset/asl_dataset/train'
-test_dir = './dataset/asl_dataset/test'
 
-# Data augmentation cho tập train
+train_dir = '../dataset/asl_dataset/train'
+test_dir = '../dataset/asl_dataset/test'
+
+
 train_datagen = ImageDataGenerator(
     rescale=1. / 255,
     rotation_range=15,
@@ -49,10 +42,10 @@ train_datagen = ImageDataGenerator(
     validation_split=0.2
 )
 
-# Generator cho tập train và validation
+
 train_generator = train_datagen.flow_from_directory(
     train_dir,
-    target_size=(224, 224),  # MobileNetV2 yêu cầu 224x224
+    target_size=(224, 224),
     batch_size=32,
     class_mode='categorical',
     subset='training'
@@ -66,8 +59,6 @@ val_generator = train_datagen.flow_from_directory(
     subset='validation'
 )
 
-# --- Bước 6: Xây dựng model với Transfer Learning ---
-# Sử dụng MobileNetV2 làm base model
 base_model = MobileNetV2(
     input_shape=(224, 224, 3),
     include_top=False,
@@ -75,32 +66,30 @@ base_model = MobileNetV2(
     pooling='avg'
 )
 
-# Đóng băng các layer của base model
 base_model.trainable = False
 
-# Xây dựng model đầu ra
+
 model = Sequential([
     base_model,
     Dense(256, activation='relu'),
     Dropout(0.5),
-    Dense(29, activation='softmax')  # 29 lớp đầu ra cho ASL
+    Dense(29, activation='softmax')
 ])
 
-# Biên dịch model
+
 model.compile(
     optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3),
     loss='categorical_crossentropy',
     metrics=['accuracy']
 )
 
-# --- Bước 7: Huấn luyện model ---
-# Callbacks để tối ưu quá trình training
+
 callbacks = [
     EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True),
     ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=2)
 ]
 
-# Training
+
 history = model.fit(
     train_generator,
     epochs=15,
@@ -109,8 +98,7 @@ history = model.fit(
     verbose=1
 )
 
-# --- Bước 8: Đánh giá model ---
-# Vẽ đồ thị accuracy và loss
+
 plt.figure(figsize=(12, 5))
 
 plt.subplot(1, 2, 1)
@@ -128,7 +116,6 @@ plt.legend()
 plt.show()
 
 
-# --- Bước 9: Dự đoán ảnh mới ---
 def predict_asl(image_path):
     # Tiền xử lý ảnh
     img = cv2.imread(image_path)
@@ -144,11 +131,11 @@ def predict_asl(image_path):
     return class_label
 
 
-# Ví dụ sử dụng
-test_image = './dataset/asl_dataset/test/A_test.jpg'  # Thay bằng đường dẫn ảnh của bạn
+
+test_image = './dataset/asl_dataset/test/A_test.jpg'
 print("Dự đoán:", predict_asl(test_image))
 
-# --- Bước 10: Lưu model ---
+
 model.save('asl_model_v1.h5')
 class_labels = list(train_generator.class_indices.keys())
 np.save('class_labels_v1.npy', class_labels)
