@@ -1,7 +1,7 @@
 ﻿import asyncio
 import socket
 from enum import IntEnum
-from UDP.model import ASLClassifier
+from model.model import ASLClassifier
 
 
 class KeyData(IntEnum):
