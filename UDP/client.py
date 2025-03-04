@@ -8,7 +8,7 @@ class KeyData(IntEnum):
 def main():
     server_ip = "127.0.0.1"
     server_port = 5005
-    image_path = "../dataset/asl_dataset/test/E_test.jpg"
+    image_path = "../dataset/asl_dataset/test/K_test.jpg"
 
     try:
         with open(image_path, "rb") as f:
