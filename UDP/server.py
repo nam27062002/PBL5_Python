@@ -1,7 +1,7 @@
 ﻿import asyncio
 import socket
 from enum import IntEnum
-from model.model import ASLClassifier
+from ASLClassifier import ASLClassifier
 
 
 class KeyData(IntEnum):
@@ -22,56 +22,64 @@ class MyUDPProtocol(asyncio.DatagramProtocol):
 
     def datagram_received(self, data: bytes, addr):
         if len(data) < 4:
-            print("❗ Received data < 4 bytes. Skipping.")
+            print("Received data < 4 bytes. Skipping.")
             return
         key_value = int.from_bytes(data[:4], byteorder='little', signed=False)
         key_data = KeyData(key_value) if key_value in KeyData._value2member_map_ else None
         payload = data[4:]
-
-        print(f"📥 [AsyncServer] Packet from {addr} | KeyData = {key_data}, payload length = {len(payload)}")
+        print(f"Packet from {addr} | KeyData = {key_data}, payload length = {len(payload)}")
 
         if key_data == KeyData.LetterPrediction:
-            predicted_label, confidence = self.asl_classifier.predict_asl(image_data=payload)
-            print(f"Predicted: {predicted_label}, Confidence: {confidence:.4f}")
-            response_str = f"Server Response -> Predicted: {predicted_label}, Confidence: {confidence:.4f}"
-            response_key_data = KeyData.LetterPrediction
-            response_key_bytes = int(response_key_data).to_bytes(4, 'little')
-            payload_bytes = response_str.encode('utf-8')
-            final_bytes = response_key_bytes + payload_bytes
-            self.transport.sendto(final_bytes, addr)
-
-
+            try:
+                predicted_label, confidence = self.asl_classifier.predict_asl(image_data=payload)
+                print(f"Predicted: {predicted_label}, Confidence: {confidence:.4f}")
+                response_str = f"Predicted: {predicted_label}, Confidence: {confidence:.4f}"
+                response_key_data = KeyData.LetterPrediction
+                response_key_bytes = int(response_key_data).to_bytes(4, 'little')
+                payload_bytes = response_str.encode('utf-8')
+                final_bytes = response_key_bytes + payload_bytes
+                self.transport.sendto(final_bytes, addr)
+            except Exception as e:
+                error_msg = f"Error: {str(e)}"
+                print(error_msg)
+                response_key_bytes = int(KeyData.None_).to_bytes(4, 'little')
+                payload_bytes = error_msg.encode('utf-8')
+                final_bytes = response_key_bytes + payload_bytes
+                self.transport.sendto(final_bytes, addr)
 
 
 class AsyncUDPServer:
-    def __init__(self, ip="127.0.0.1", port=5005, buffer_size=65536):
+    def __init__(self, ip="127.0.0.1", port=5005, buffer_size=65536, model_path="asl_mobile_net_v2_model.h5"):
         self.ip = ip
         self.port = port
         self.buffer_size = buffer_size
-        self.asl_classifier = ASLClassifier(
-            model_path='../model/asl_model_v1.h5',
-            labels_path='../model/class_labels_v1.npy'
-        )
+        self.asl_classifier = ASLClassifier(model_path)
 
     async def start_server(self):
         loop = asyncio.get_running_loop()
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, self.buffer_size)
-
         sock.bind((self.ip, self.port))
-        print(f"🔄 [AsyncServer] UDP server bound to {self.ip}:{self.port}")
+        print(f"UDP server bound to {self.ip}:{self.port}")
         transport, protocol = await loop.create_datagram_endpoint(
             lambda: MyUDPProtocol(self.asl_classifier, self.buffer_size),
             sock=sock
         )
-        print("🔄 [AsyncServer] Server ready to receive data...")
-
-        while True:
-            await asyncio.sleep(3600)
+        print("Server ready to receive data...")
+        try:
+            await asyncio.Future()
+        except asyncio.CancelledError:
+            transport.close()
+            print("Server stopped.")
 
 
 def main():
-    server = AsyncUDPServer(ip="127.0.0.1", port=5005, buffer_size=1024 * 1024)  # 1 MB buffer
+    server = AsyncUDPServer(
+        ip="127.0.0.1",
+        port=5005,
+        buffer_size=1024 * 1024,
+        model_path="../model/asl_vgg16_model.h5"
+    )
     asyncio.run(server.start_server())
 
 
